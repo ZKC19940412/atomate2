@@ -83,8 +83,8 @@ _DEFAULT_FILE_PATHS = {
 
 # The anharmonic training set is sized so that the fit has this many force
 # equations per free force constant. The floor keeps the set from becoming
-# very small. Above the ceiling the job stops instead of requesting more
-# displaced supercells.
+# very small. Above the ceiling the automatic count is reduced to the ceiling,
+# with a warning.
 _EQUATIONS_PER_FREE_FC = 100
 _MIN_NUM_DISP_ANHAR = 20
 _MAX_NUM_DISP_ANHAR = 600
@@ -194,8 +194,9 @@ def _get_num_anharmonic_supercells(
     A non-zero num_disp_anhar is returned as given. Otherwise, each supercell
     gives 3 * natom force equations, and the number of supercells is set so
     that there are _EQUATIONS_PER_FREE_FC equations per free force constant,
-    with at least _MIN_NUM_DISP_ANHAR supercells. Above _MAX_NUM_DISP_ANHAR a
-    ValueError is raised. The free force constants are those of third (and
+    with at least _MIN_NUM_DISP_ANHAR supercells. Above _MAX_NUM_DISP_ANHAR the
+    number is reduced to _MAX_NUM_DISP_ANHAR and a warning is logged, since the
+    fit can then be under-determined. The free force constants are those of third (and
     fourth) order, plus those of second order when the one-shot fit is
     requested, since it fits all orders together. pheasy counts them with the
     cluster options of the fit, see _get_num_free_fcs.
@@ -230,12 +231,13 @@ def _get_num_anharmonic_supercells(
     num = int(np.ceil(_EQUATIONS_PER_FREE_FC * n_free / (3.0 * natom)))
     num = max(num, _MIN_NUM_DISP_ANHAR)
     if num > _MAX_NUM_DISP_ANHAR:
-        raise ValueError(
+        logger.warning(
             f"{num} displaced supercells are needed for {n_free} free force "
-            f"constants, more than the limit of {_MAX_NUM_DISP_ANHAR}. Reduce "
-            "fcs_cutoff_radius, use a larger supercell, or set num_disp_anhar "
-            "to accept the cost."
+            f"constants, exceeding the cap of {_MAX_NUM_DISP_ANHAR}; using "
+            f"{_MAX_NUM_DISP_ANHAR}. The anharmonic fit may be under-determined. "
+            "Set num_disp_anhar to override."
         )
+        return _MAX_NUM_DISP_ANHAR
     return num
 
 

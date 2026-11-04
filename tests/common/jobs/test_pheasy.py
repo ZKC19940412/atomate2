@@ -220,7 +220,7 @@ def test_atom_on_cell_face(tmp_dir):
     assert np.linalg.norm(residual) < 0.05 * np.linalg.norm(forces)
 
 
-def test_get_num_anharmonic_supercells(monkeypatch):
+def test_get_num_anharmonic_supercells(monkeypatch, caplog):
     phonon = _generate_phonon_object(_cu_structure(), **COMMON_KWARGS)
     kwargs = {
         "supercell": phonon.supercell,
@@ -259,10 +259,20 @@ def test_get_num_anharmonic_supercells(monkeypatch):
     }
     assert _get_num_anharmonic_supercells(num_disp_anhar=0, **binary) == 337
 
-    # above the ceiling the job stops
+    # above the ceiling the automatic count is reduced to it, with a warning
     monkeypatch.setattr(pheasy_jobs, "_MAX_NUM_DISP_ANHAR", 30)
-    with pytest.raises(ValueError, match="more than the limit of 30"):
-        _get_num_anharmonic_supercells(num_disp_anhar=0, **kwargs)
+    with caplog.at_level("WARNING", logger=pheasy_jobs.__name__):
+        assert _get_num_anharmonic_supercells(num_disp_anhar=0, **kwargs) == 30
+    assert "108 displaced supercells are needed for 349 free" in caplog.text
+    assert "exceeding the cap of 30; using 30" in caplog.text
+    assert "under-determined" in caplog.text
+    assert "num_disp_anhar" in caplog.text
+
+    # a value set by the user above the ceiling is used as it is, with no warning
+    caplog.clear()
+    with caplog.at_level("WARNING", logger=pheasy_jobs.__name__):
+        assert _get_num_anharmonic_supercells(num_disp_anhar=50, **kwargs) == 50
+    assert not caplog.records
 
 
 def test_run_harmonic_fit(monkeypatch):
