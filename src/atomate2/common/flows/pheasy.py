@@ -111,8 +111,9 @@ class BasePhononMaker(PurePhonopyMaker, ABC):
         for anharmonic phonon calculations. A non-zero value is used as given. The
         default value is 0, and then the number is set so that the fit has 100 force
         equations per free force constant, with at least 20 displaced supercells.
-        Above 600 the job stops. The free force constants are counted with pheasy, for
-        this supercell and fcs_cutoff_radius. The second-order FCs are included when
+        Above 600 the number is reduced to 600 with a warning, since the fit can
+        then be under-determined. The free force constants are counted with pheasy,
+        for this supercell and fcs_cutoff_radius. The second-order FCs are included when
         "one-shot" is requested.
     anhar_max_order: int
         highest order of the anharmonic FCs, 3 or 4. The default of 3 fits the
