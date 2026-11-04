@@ -98,6 +98,47 @@ def test_nvt_nose_hoover_chain(si_structure, clean_dir):
         maker.run_ase(si_structure)
 
 
+@pytest.mark.parametrize("dynamics", ["nose-hoover-chain", "MTKNPT", "Isotropic"])
+@pytest.mark.parametrize(
+    ("temperature", "pressure", "quantity"),
+    [([300, 3000], 1.0, "temperature"), (300, [1.0, 10.0], "pressure")],
+)
+def test_npt_mtk_schedule_raises(
+    si_structure, clean_dir, dynamics, temperature, pressure, quantity
+):
+    """MTKNPT and IsotropicMTKNPT cannot follow temperature or pressure schedules."""
+    from ase.md.nose_hoover_chain import MTKNPT, IsotropicMTKNPT
+
+    dyn = {"MTKNPT": MTKNPT, "Isotropic": IsotropicMTKNPT}.get(dynamics, dynamics)
+    maker = LennardJonesMDMaker(
+        ensemble="npt",
+        dynamics=dyn,
+        temperature=temperature,
+        pressure=pressure,
+        n_steps=5,
+        ase_md_kwargs={"tdamp": 10, "pdamp": 100},
+    )
+    with pytest.raises(ValueError, match=f"cannot follow a {quantity} schedule"):
+        maker.run_ase(si_structure)
+
+
+def test_unknown_dynamics_error_lists_valid_names(si_structure, clean_dir):
+    """The error for an unknown dynamics name lists valid names, comma-separated."""
+    maker = LennardJonesMDMaker(
+        ensemble="npt",
+        dynamics="not-a-thermostat",
+        temperature=300,
+        pressure=1.0,
+        n_steps=1,
+    )
+    with pytest.raises(
+        ValueError,
+        match="Available npt thermostats are: berendsen, nose-hoover, "
+        "nose-hoover-chain",
+    ):
+        maker.run_ase(si_structure)
+
+
 def get_positions_from_seed_and_dyn(structure, seed, dynamics, ase_md_kwargs):
     """Final positions of a 5-step NVT run at 300 K with the Lennard-Jones potential."""
     maker = LennardJonesMDMaker(

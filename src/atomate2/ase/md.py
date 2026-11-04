@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from ase import units
 from ase.md.md import MolecularDynamics
+from ase.md.nose_hoover_chain import MTKNPT, IsotropicMTKNPT
 from ase.md.npt import NPT
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
@@ -360,7 +361,7 @@ class AseMDMaker(AseMaker, ABC):
                     f"{self.dynamics} thermostat not available for "
                     f"{self.ensemble.value}. "
                     f"Available {self.ensemble.value} thermostats are: "
-                    " ".join(_valid_dynamics[self.ensemble])
+                    + ", ".join(sorted(_valid_dynamics[self.ensemble]))
                 )
 
             _dyn_mod_path = DynamicsPresets[
@@ -410,6 +411,17 @@ class AseMDMaker(AseMaker, ABC):
         )
 
         md_runner.attach(md_observer, interval=self.traj_interval)
+
+        if isinstance(md_runner, (MTKNPT, IsotropicMTKNPT)):
+            # MTKNPT and IsotropicMTKNPT keep their initial temperature and pressure
+            for name, schedule in (
+                ("temperature", self.t_schedule),
+                ("pressure", self.p_schedule),
+            ):
+                if np.ptp(schedule) > 0:
+                    raise ValueError(
+                        f"{type(md_runner).__name__} cannot follow a {name} schedule."
+                    )
 
         can_set_temperature = hasattr(md_runner, "_temperature_K") or hasattr(
             md_runner, "set_temperature"
