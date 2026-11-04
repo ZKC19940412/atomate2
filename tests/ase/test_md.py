@@ -75,6 +75,35 @@ def test_npt_init_kwargs(si_structure, clean_dir, caplog):
         assert "The `NPT` module in ASE is no longer recommended" in caplog.text
 
 
+def test_npt_nose_hoover_rotates_atoms_with_cell(si_structure, clean_dir):
+    """NPT rotates the cell to upper triangular form; atoms must rotate with it."""
+    structure = si_structure.copy()
+    structure.make_supercell([2, 1, 1])
+    lattice = structure.lattice.matrix
+    assert not np.allclose(lattice, np.triu(lattice))
+
+    velocities = np.random.default_rng(1).normal(size=(len(structure), 3))
+    structure.add_site_property("velocities", velocities.tolist())
+
+    maker = LennardJonesMDMaker(
+        ensemble="npt",
+        dynamics="nose-hoover",
+        temperature=300,
+        pressure=1.0,
+        n_steps=0,
+    )
+    final = maker.run_ase(structure).final_mol_or_struct
+
+    frac_diff = final.frac_coords - structure.frac_coords
+    frac_diff -= np.round(frac_diff)
+    assert np.allclose(frac_diff, 0.0, atol=1e-6)
+
+    final_velocities = np.array(final.site_properties["velocities"])
+    assert np.allclose(
+        final_velocities @ final.lattice.matrix.T, velocities @ lattice.T, atol=1e-6
+    )
+
+
 def test_nvt_nose_hoover_chain(si_structure, clean_dir):
     """NoseHooverChainNVT runs at a constant temperature only."""
     maker = LennardJonesMDMaker(
